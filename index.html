@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BLE Analyse Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Web-App-Manifest (optional, aber gut für PWA-Feeling) -->
+    <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
+    <meta name="theme-color" content="#0a74da">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+    <header class="header">
+        <div class="container">
+            <h1>BLE Analyse Dashboard</h1>
+            <p>Protokoll-Analyse für FTF-Kommunikation</p>
+        </div>
+    </header>
+
+    <main class="container layout-container">
+        <!-- Spalte 1: Steuerung und Übersicht -->
+        <div class="main-column">
+            <!-- Datei-Upload-Zone -->
+            <section id="file-loader-zone" class="card drop-zone">
+                <h2>1. Scan-Protokoll laden</h2>
+                <p>JSON-Datei hierher ziehen oder klicken, um sie auszuwählen.</p>
+                <input type="file" id="file-input" accept=".json" class="drop-zone__input">
+                <div id="loader" class="loader hidden"></div>
+            </section>
+
+            <!-- Geräte-Übersicht -->
+            <section id="dashboard-overview" class="card">
+                <h2>2. Geräteübersicht</h2>
+                <div id="overview-filters">
+                    <!-- Filter-Buttons werden hier von UI.js eingefügt -->
+                </div>
+                <div id="overview-list" class="device-list">
+                    <p class="placeholder-text">Noch keine Daten geladen.</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- Spalte 2: Detailansicht -->
+        <aside id="detail-view" class="card detail-column">
+            <h2>Geräte-Details</h2>
+            <div id="detail-content">
+                <p class="placeholder-text">Kein Gerät ausgewählt.</p>
+            </div>
+        </aside>
+    </main>
+
+    <!-- App-Einstiegspunkt -->
+    <script type="module" src="main.js"></script>
+</body>
+</html>
+
