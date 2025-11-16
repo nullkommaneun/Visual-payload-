@@ -17,9 +17,12 @@
     
     /* Akzentfarben (basierend auf Klassifizierung) */
     --color-primary: #007bff;
-    --color-ftf-highlight: #ffc107; /* FTF (Wichtig) */
+    --color-ftf: #ffc107;         /* FTF (Wichtig) */
+    --color-ftf-bg: #4d3b03;      /* Dunkler Hintergrund für FTF */
     --color-consumer: #17a2b8;     /* Consumer (Info) */
+    --color-consumer-bg: #0d3c44;
     --color-irrelevant: #6c757d; /* Irrelevant (Stumm) */
+    --color-irrelevant-bg: #343a40;
     --color-danger: #dc3545;
 
     /* Typografie */
@@ -62,6 +65,20 @@ h1, h2, h3 {
 
 h1 { font-size: 2.5rem; }
 h2 { font-size: 1.5rem; border-bottom: 1px solid var(--color-border); padding-bottom: var(--spacing-s); }
+h3 { font-size: 1.2rem; }
+
+code, pre {
+    font-family: var(--font-family-mono);
+    background-color: var(--color-bg);
+    padding: 2px 4px;
+    border-radius: var(--border-radius);
+    font-size: 0.9em;
+}
+
+pre {
+    padding: var(--spacing-m);
+    overflow-x: auto;
+}
 
 /* 4. Layout-Stile (Basis) */
 .container {
@@ -70,19 +87,19 @@ h2 { font-size: 1.5rem; border-bottom: 1px solid var(--color-border); padding-bo
 }
 
 main {
-    flex: 2; /* Hauptinhalt nimmt mehr Platz ein */
+    flex: 2; 
     display: flex;
     flex-direction: column;
     gap: var(--spacing-l);
 }
 
 aside {
-    flex: 1; /* Sidebar nimmt weniger Platz ein */
+    flex: 1; 
     background-color: var(--color-bg-darker);
     border-radius: var(--border-radius);
     padding: var(--spacing-m);
     border: 1px solid var(--color-border);
-    height: 80vh; /* Beispielhöhe */
+    height: 80vh; 
     overflow-y: auto;
 }
 
@@ -93,7 +110,7 @@ section {
     border: 1px solid var(--color-border);
 }
 
-/* 5. NEU: File Loader Stile */
+/* 5. File Loader Stile (unverändert) */
 .drop-zone {
     border: 2px dashed var(--color-border);
     border-radius: var(--border-radius);
@@ -108,51 +125,123 @@ section {
     justify-content: center;
     flex-direction: column;
 }
+.drop-zone.active { /* ... */ }
+.file-input-label { /* ... */ }
+.error-message { /* ... */ }
+.loading-spinner { /* ... */ }
+@keyframes spin { /* ... */ }
 
-.drop-zone.active {
-    background-color: var(--color-bg);
+/* 6. NEU: Dashboard-Liste & Filter */
+#dashboard-section {
+    /* Erlaube der Liste, den verfügbaren Platz einzunehmen */
+    display: flex;
+    flex-direction: column;
+}
+
+.dashboard-filter {
+    display: flex;
+    gap: var(--spacing-l);
+    margin-bottom: var(--spacing-m);
+    padding-bottom: var(--spacing-m);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.dashboard-filter label {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-s);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+}
+.dashboard-filter label:hover {
+    color: var(--color-text-primary);
+}
+
+.device-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-s);
+    max-height: 60vh; /* Begrenzt die Höhe, macht sie scrollbar */
+    overflow-y: auto;
+}
+
+.device-item {
+    display: grid;
+    grid-template-columns: auto 1fr 1fr auto;
+    gap: var(--spacing-m);
+    align-items: center;
+    background-color: var(--color-bg-darker);
+    border: 1px solid var(--color-border);
+    padding: var(--spacing-m);
+    border-radius: var(--border-radius);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+    cursor: pointer;
+}
+
+.device-item:hover {
+    background-color: var(--color-surface);
     border-color: var(--color-primary);
 }
 
-.drop-zone-text p {
-    margin-bottom: var(--spacing-m);
+.device-item.selected {
+    background-color: var(--color-bg);
+    border-left: 4px solid var(--color-primary);
+    padding-left: calc(var(--spacing-m) - 4px); /* Kompensiert den Border */
 }
 
-.file-input-label {
-    background-color: var(--color-primary);
-    color: var(--color-text-primary);
-    padding: var(--spacing-s) var(--spacing-m);
-    border-radius: var(--border-radius);
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-    display: inline-block; /* Wichtig für Padding */
-}
-
-.file-input-label:hover {
-    background-color: #0069d9;
-}
-
-.error-message {
-    color: var(--color-danger);
+/* Klassifizierungs-Styling */
+.device-classification-tag {
+    font-size: 0.8em;
     font-weight: bold;
-    margin-top: var(--spacing-m);
+    padding: var(--spacing-xs) var(--spacing-s);
+    border-radius: var(--border-radius);
+    text-transform: uppercase;
+    color: #fff;
 }
 
-.loading-spinner {
-    border: 4px solid var(--color-border);
-    border-top: 4px solid var(--color-primary);
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    animation: spin 1s linear infinite;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    margin-top: -20px;
-    margin-left: -20px;
+.device-item.ftf {
+    border-left: 4px solid var(--color-ftf);
+}
+.device-item.ftf .device-classification-tag {
+    background-color: var(--color-ftf);
+    color: var(--color-bg-darker);
 }
 
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+.device-item.consumer {
+    border-left: 4px solid var(--color-consumer);
+}
+.device-item.consumer .device-classification-tag {
+    background-color: var(--color-consumer);
+}
+
+.device-item.irrelevant {
+    border-left: 4px solid var(--color-irrelevant);
+    opacity: 0.7; /* Leicht ausblenden */
+}
+.device-item.irrelevant .device-classification-tag {
+    background-color: var(--color-irrelevant);
+}
+
+/* Stile für die Listeneinträge */
+.device-info {
+    display: flex;
+    flex-direction: column;
+}
+.device-info strong {
+    color: var(--color-text-primary);
+    font-size: 1.1em;
+}
+.device-info .device-company {
+    color: var(--color-text-secondary);
+    font-size: 0.9em;
+}
+
+.device-payload-preview code {
+    color: var(--color-text-secondary);
+}
+
+.device-rssi {
+    font-weight: bold;
+    color: var(--color-text-primary);
+    text-align: right;
 }
