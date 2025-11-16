@@ -1,13 +1,12 @@
 // modules/UI.js: Verantwortlich für das gesamte DOM-Rendering
 
 import { Debug } from './Debug.js';
-import { PayloadParser } from './PayloadParser.js'; // Wird für Deep Dive benötigt
+import { PayloadParser } from './PayloadParser.js'; 
 
 export class UI {
     constructor(store) {
         this.store = store;
         
-        // DOM-Elemente für schnellen Zugriff cachen
         this.fileLoaderSection = document.getElementById('file-loader-ui');
         this.dashboardSection = document.getElementById('dashboard-ui');
         this.deepDiveSection = document.getElementById('deep-dive-content');
@@ -21,8 +20,6 @@ export class UI {
     initialize() {
         Debug.log("UI: Rendere initiale Komponenten...");
         this.renderFileLoader(); 
-        
-        // Initiales Rendern der (leeren) Dashboard-Sektion
         this.renderDashboardLayout();
         
         Debug.log("UI: Abonniert Store-Events.");
@@ -32,10 +29,13 @@ export class UI {
 
         // Hört auf neue klassifizierte Daten
         this.store.subscribe('classifiedDevicesUpdated', (devices) => {
+            // --- NEU: DEBUG-LOG ---
+            Debug.log(`UI: Event 'classifiedDevicesUpdated' EMPFANGEN. Rendere Liste mit ${devices.length} Geräten.`, devices);
+            // ---------------------
             this.renderDeviceList(devices, this.store.state.currentFilter);
         });
         
-        // Hört auf Filter-Änderungen, um die Liste neu zu zeichnen
+        // Hört auf Filter-Änderungen
         this.store.subscribe('filterChanged', (filter) => {
             this.renderDeviceList(this.store.state.classifiedDevices, filter);
         });
@@ -43,15 +43,13 @@ export class UI {
         // Hört auf das ausgewählte Gerät
         this.store.subscribe('selectedDeviceUpdated', (device) => {
             this.renderDeepDive(device);
-            // Hebt das ausgewählte Item in der Liste hervor
             this.highlightSelectedItem(device ? device.id : null);
         });
         
-        // Event Listeners für die Dashboard-Sektion (Filter, Klicks)
         this.addDashboardEventListeners();
     }
 
-    // --- File Loader Rendering (unverändert) ---
+    // --- File Loader Rendering ---
     renderFileLoader() {
         const html = `
             <div id="drop-zone" class="drop-zone">
@@ -67,20 +65,36 @@ export class UI {
         `;
         this.fileLoaderSection.innerHTML = html;
     }
-    showLoading(isLoading) { /* ... (unverändert) ... */ }
-    showError(message) { /* ... (unverändert) ... */ }
     
-    // --- NEU: Dashboard Rendering ---
+    showLoading(isLoading) {
+        const spinner = this.fileLoaderSection.querySelector('.loading-spinner');
+        const text = this.fileLoaderSection.querySelector('.drop-zone-text');
+        
+        if (spinner && text) {
+            spinner.style.display = isLoading ? 'block' : 'none';
+            text.style.display = isLoading ? 'none' : 'block';
+            if (isLoading) {
+                this.showError(null); 
+            }
+        }
+    }
+    
+    showError(message) {
+        const errorEl = this.fileLoaderSection.querySelector('.error-message');
+        if (errorEl) {
+            errorEl.textContent = message;
+            errorEl.style.display = message ? 'block' : 'none';
+        }
+    }
+    
+    // --- Dashboard Rendering ---
 
-    /**
-     * Rendert das Grund-Layout für Filter und Liste.
-     */
     renderDashboardLayout() {
         const filterState = this.store.state.currentFilter;
         const html = `
             <div class="dashboard-filter" id="dashboard-filter">
                 <label>
-                    <input type_="checkbox" data-filter="showFTF" ${filterState.showFTF ? 'checked' : ''}>
+                    <input type="checkbox" data-filter="showFTF" ${filterState.showFTF ? 'checked' : ''}>
                     FTF (${this.getDeviceCount('FTF')})
                 </label>
                 <label>
@@ -99,13 +113,8 @@ export class UI {
         this.dashboardSection.innerHTML = html;
     }
 
-    /**
-     * Zeichnet die Liste der Geräte basierend auf Filtern neu.
-     * @param {Array} devices - Die klassifizierten Geräte
-     * @param {object} filter - Das aktuelle Filter-Objekt
-     */
     renderDeviceList(devices, filter) {
-        Debug.log(`UI: Render Geräte-Liste mit ${devices.length} Geräten und Filter`, filter);
+        Debug.log(`UI: (In renderDeviceList) Render Geräte-Liste mit ${devices.length} Geräten und Filter`, filter);
         
         const listContainer = document.getElementById('device-list-container');
         if (!listContainer) return;
@@ -122,8 +131,6 @@ export class UI {
         const sortedDevices = filteredDevices.sort((a, b) => {
             if (a.classification === 'FTF' && b.classification !== 'FTF') return -1;
             if (a.classification !== 'FTF' && b.classification === 'FTF') return 1;
-            // Sekundär-Sortierung (optional, z.B. nach RSSI)
-            // return (b.rssi || -100) - (a.rssi || -100); 
             return 0;
         });
 
@@ -140,20 +147,16 @@ export class UI {
         this.updateFilterCounts();
     }
     
-    /**
-     * Erstellt das HTML für ein einzelnes Gerät in der Liste.
-     * @param {object} device
-     */
     createDeviceItemHTML(device) {
         const classificationClass = device.classification.toLowerCase();
         const displayName = device.name || "(Unbekanntes Gerät)";
-        const payloadPreview = (device.rawDataPayload || "").substring(0, 20); // Erste 20 Zeichen
+        const payloadPreview = (device.rawDataPayload || "").substring(0, 20); 
         const lastRssi = Array.isArray(device.rssiGraph) && device.rssiGraph.length > 0 
                          ? device.rssiGraph[device.rssiGraph.length - 1] 
                          : (device.rssi || 'N/A');
 
         return `
-            <div class_="device-item ${classificationClass}" data-device-id="${device.id}">
+            <div class="device-item ${classificationClass}" data-device-id="${device.id}">
                 <span class="device-classification-tag ${classificationClass}">${device.classification}</span>
                 <div class="device-info">
                     <strong>${displayName}</strong>
@@ -169,21 +172,16 @@ export class UI {
         `;
     }
     
-    /**
-     * Fügt Event-Listener für Filter und Geräteliste hinzu (Event Delegation).
-     */
     addDashboardEventListeners() {
         this.dashboardSection.addEventListener('click', (e) => {
-            // Event 1: Klick auf einen Filter-Checkbox
             const filterCheckbox = e.target.closest('input[data-filter]');
             if (filterCheckbox) {
                 const filterName = filterCheckbox.dataset.filter;
                 const isChecked = filterCheckbox.checked;
                 this.store.setFilter({ [filterName]: isChecked });
-                return; // Wichtig: Verhindert, dass Klick an .device-item weitergeht
+                return; 
             }
 
-            // Event 2: Klick auf ein Gerät in der Liste
             const deviceItem = e.target.closest('.device-item');
             if (deviceItem) {
                 const deviceId = deviceItem.dataset.deviceId;
@@ -192,9 +190,6 @@ export class UI {
         });
     }
 
-    /**
-     * Aktualisiert die Zähler in den Filter-Labels.
-     */
     updateFilterCounts() {
         const filterUI = document.getElementById('dashboard-filter');
         if (!filterUI) return;
@@ -217,19 +212,14 @@ export class UI {
         return this.store.state.classifiedDevices.filter(d => d.classification === classification).length;
     }
     
-    /**
-     * Hebt das ausgewählte Item in der Liste hervor.
-     */
     highlightSelectedItem(deviceId) {
         const listContainer = document.getElementById('device-list-container');
         if (!listContainer) return;
 
-        // Alle 'selected'-Klassen entfernen
         listContainer.querySelectorAll('.device-item.selected').forEach(el => {
             el.classList.remove('selected');
         });
 
-        // Das neue Item hervorheben
         if (deviceId) {
             const selectedItem = listContainer.querySelector(`.device-item[data-device-id="${deviceId}"]`);
             if (selectedItem) {
@@ -257,3 +247,4 @@ export class UI {
         }
     }
 }
+ 
