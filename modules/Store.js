@@ -6,25 +6,32 @@ export class Store {
     constructor() {
         // Der "Single Source of Truth"
         this.state = {
-            rawDevices: [],         // Rohdaten aus der JSON
-            classifiedDevices: [],  // Daten nach Klassifizierung
-            currentFilter: {},      // Aktuelle Filter-Einstellungen der UI
-            selectedDevice: null    // Das Gerät, das im Deep Dive angezeigt wird
+            rawDevices: [],
+            classifiedDevices: [],
+            currentFilter: {},
+            selectedDevice: null,
+            // UI-Zustände
+            isLoading: false,
+            errorMessage: null
         };
         
         // Liste der Subscriber (Observer-Pattern)
-        this.subscribers = {}; // z.B. { 'rawDevicesUpdated': [callback1, callback2] }
+        // { eventName: [callback1, callback2], ... }
+        this.subscribers = {}; 
 
         Debug.log("Store: Initialisiert.");
     }
 
     /**
      * Ein Modul (z.B. UI) registriert sich für ein bestimmtes Event
-     * @param {string} event - Das Event, auf das gehört werden soll (z.B. 'stateChanged')
+     * @param {string} event - Das Event, auf das gehört werden soll (z.B. 'loadingChanged')
      * @param {function} callback - Die Funktion, die bei dem Event aufgerufen wird
      */
     subscribe(event, callback) {
-        // (Implementierung folgt in Schritt 2)
+        if (!this.subscribers[event]) {
+            this.subscribers[event] = [];
+        }
+        this.subscribers[event].push(callback);
         Debug.log(`Store: Neue Subscription für Event [${event}]`);
     }
 
@@ -34,11 +41,21 @@ export class Store {
      * @param {*} data - Die Daten, die an die Subscriber übergeben werden
      */
     notify(event, data) {
-        // (Implementierung folgt in Schritt 2)
-        Debug.log(`Store: Notify Event [${event}]`);
+        if (!this.subscribers[event]) {
+            return; // Kein Subscriber für dieses Event
+        }
+        Debug.log(`Store: Notify Event [${event}] mit Daten:`, data);
+        // Rufe jeden Subscriber für dieses Event auf
+        this.subscribers[event].forEach(callback => {
+            try {
+                callback(data);
+            } catch (error) {
+                Debug.error(`Fehler im Subscriber für Event [${event}]:`, error);
+            }
+        });
     }
 
-    // --- STATE SETTER ---
+    // --- STATE SETTER (Mutations) ---
     // Alle Änderungen am State MÜSSEN über diese Funktionen laufen,
     // damit wir das "notify" nicht vergessen.
 
@@ -48,9 +65,31 @@ export class Store {
      */
     setRawDevices(devices) {
         this.state.rawDevices = devices;
+        this.state.classifiedDevices = []; // Alte Klassifizierung zurücksetzen
+        this.state.selectedDevice = null;   // Auswahl zurücksetzen
+        
         Debug.log(`Store: ${devices.length} Roh-Geräte gesetzt.`);
+        
         // Benachrichtige alle, die 'rawDevicesUpdated' abonniert haben
         this.notify('rawDevicesUpdated', this.state.rawDevices);
+    }
+    
+    /**
+     * Setzt den globalen Lade-Status (z.B. für Datei-Upload).
+     * @param {boolean} isLoading
+     */
+    setIsLoading(isLoading) {
+        this.state.isLoading = isLoading;
+        this.notify('loadingChanged', this.state.isLoading);
+    }
+    
+    /**
+     * Setzt eine Fehlermeldung, die der UI angezeigt werden kann.
+     * @param {string | null} message
+     */
+    setErrorMessage(message) {
+        this.state.errorMessage = message;
+        this.notify('errorOccurred', this.state.errorMessage);
     }
     
     // (Weitere Setter für classifiedDevices, selectedDevice etc. folgen hier)
