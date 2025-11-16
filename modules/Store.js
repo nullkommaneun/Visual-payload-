@@ -7,7 +7,7 @@ export class Store {
         // Der "Single Source of Truth"
         this.state = {
             rawDevices: [],
-            classifiedDevices: [],
+            classifiedDevices: [],  // Daten nach Klassifizierung
             currentFilter: {},
             selectedDevice: null,
             // UI-Zustände
@@ -44,7 +44,7 @@ export class Store {
         if (!this.subscribers[event]) {
             return; // Kein Subscriber für dieses Event
         }
-        Debug.log(`Store: Notify Event [${event}] mit Daten:`, data);
+        Debug.log(`Store: Notify Event [${event}]`);
         // Rufe jeden Subscriber für dieses Event auf
         this.subscribers[event].forEach(callback => {
             try {
@@ -56,8 +56,6 @@ export class Store {
     }
 
     // --- STATE SETTER (Mutations) ---
-    // Alle Änderungen am State MÜSSEN über diese Funktionen laufen,
-    // damit wir das "notify" nicht vergessen.
 
     /**
      * Setzt die Rohdaten und benachrichtigt alle Subscriber.
@@ -70,8 +68,19 @@ export class Store {
         
         Debug.log(`Store: ${devices.length} Roh-Geräte gesetzt.`);
         
-        // Benachrichtige alle, die 'rawDevicesUpdated' abonniert haben
         this.notify('rawDevicesUpdated', this.state.rawDevices);
+    }
+    
+    /**
+     * NEU: Setzt die klassifizierten Daten und benachrichtigt die UI.
+     * @param {Array} devices - Die Geräte inkl. 'classification'-Feld
+     */
+    setClassifiedDevices(devices) {
+        this.state.classifiedDevices = devices;
+        Debug.log(`Store: ${devices.length} klassifizierte Geräte gesetzt.`);
+        
+        // Benachrichtige die UI, dass sie die Liste neu zeichnen kann
+        this.notify('classifiedDevicesUpdated', this.state.classifiedDevices);
     }
     
     /**
@@ -92,5 +101,5 @@ export class Store {
         this.notify('errorOccurred', this.state.errorMessage);
     }
     
-    // (Weitere Setter für classifiedDevices, selectedDevice etc. folgen hier)
+    // (Weitere Setter für selectedDevice etc. folgen hier)
 }
