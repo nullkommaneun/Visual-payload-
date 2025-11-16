@@ -1,180 +1,158 @@
-/* --- CSS Reset --- */
-*,
-*::before,
-*::after {
+/* 1. CSS Reset (Minimal) */
+*, *::before, *::after {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
 }
 
-/* --- CSS Variablen (Theme) --- */
+/* 2. CSS Variablen (Central Theme) */
 :root {
-    /* Farben */
-    --color-bg: #f4f7fa;
-    --color-surface: #ffffff;
-    --color-primary: #0a74da;
-    --color-primary-light: #e7f1fb;
-    --color-secondary: #17a2b8;
-    --color-text-primary: #212529;
-    --color-text-secondary: #6c757d;
-    --color-border: #dee2e6;
+    /* Farbpalette (Professionelles Dark-Theme) */
+    --color-bg: #1a1c20;
+    --color-bg-darker: #101113;
+    --color-surface: #2a2d32;
+    --color-border: #40444a;
+    --color-text-primary: #f0f0f0;
+    --color-text-secondary: #a0a0a0;
     
-    /* Hervorhebungen */
-    --color-ftf-bg: #fff3cd;
-    --color-ftf-border: #ffeeba;
-    --color-ftf-text: #856404;
-    
-    --color-consumer-bg: #e2e3e5;
-    --color-consumer-border: #d6d8db;
+    /* Akzentfarben (basierend auf Klassifizierung) */
+    --color-primary: #007bff;
+    --color-ftf-highlight: #ffc107; /* FTF (Wichtig) */
+    --color-consumer: #17a2b8;     /* Consumer (Info) */
+    --color-irrelevant: #6c757d; /* Irrelevant (Stumm) */
+    --color-danger: #dc3545;
 
-    --color-irrelevant-bg: #f8d7da;
-    --color-irrelevant-border: #f5c6cb;
+    /* Typografie */
+    --font-family-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-family-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
 
-    /* Layout */
-    --spacing-xs: 0.25rem;
-    --spacing-s: 0.5rem;
-    --spacing-m: 1rem;
-    --spacing-l: 1.5rem;
-    --spacing-xl: 2rem;
+    /* Abstände & Radien */
+    --spacing-xs: 4px;
+    --spacing-s: 8px;
+    --spacing-m: 16px;
+    --spacing-l: 24px;
+    --spacing-xl: 32px;
+    --border-radius: 4px;
 
-    --border-radius-sm: 0.25rem;
-    --border-radius-md: 0.5rem;
-    
-    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 10px rgba(0, 0, 0, 0.08);
+    /* Schatten */
+    --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-/* --- Grund-Styling --- */
+/* 3. Globale Stile */
 html {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    line-height: 1.6;
-    color: var(--color-text-primary);
+    font-family: var(--font-family-sans);
     background-color: var(--color-bg);
+    color: var(--color-text-primary);
+    line-height: 1.6;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
+    padding: var(--spacing-l);
 }
 
-/* --- Layout-Container --- */
+h1, h2, h3 {
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-m);
+    line-height: 1.2;
+}
+
+h1 { font-size: 2.5rem; }
+h2 { font-size: 1.5rem; border-bottom: 1px solid var(--color-border); padding-bottom: var(--spacing-s); }
+
+/* 4. Layout-Stile (Basis) */
 .container {
-    width: 100%;
-    max-width: 1600px;
-    margin: 0 auto;
-    padding: 0 var(--spacing-m);
+    display: flex;
+    gap: var(--spacing-l);
 }
 
-.layout-container {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    gap: var(--spacing-m);
-    padding-top: var(--spacing-m);
-    padding-bottom: var(--spacing-m);
-    flex-grow: 1;
-}
-
-.main-column {
+main {
+    flex: 2; /* Hauptinhalt nimmt mehr Platz ein */
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-m);
+    gap: var(--spacing-l);
 }
 
-.detail-column {
-    /* Bleibt "sticky", wenn der Inhalt links länger wird */
-    position: sticky;
-    top: var(--spacing-m);
-    align-self: start;
-    max-height: calc(100vh - 2 * var(--spacing-m));
+aside {
+    flex: 1; /* Sidebar nimmt weniger Platz ein */
+    background-color: var(--color-bg-darker);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-m);
+    border: 1px solid var(--color-border);
+    height: 80vh; /* Beispielhöhe */
     overflow-y: auto;
 }
 
-/* --- Header --- */
-.header {
+section {
     background-color: var(--color-surface);
-    padding: var(--spacing-m) 0;
-    border-bottom: 1px solid var(--color-border);
-    box-shadow: var(--shadow-sm);
-}
-.header h1 {
-    color: var(--color-primary);
-    font-size: 1.75rem;
-    margin-bottom: var(--spacing-xs);
-}
-.header p {
-    color: var(--color-text-secondary);
-    font-size: 1rem;
-}
-
-/* --- Karten-Styling --- */
-.card {
-    background-color: var(--color-surface);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-m);
     border: 1px solid var(--color-border);
-    border-radius: var(--border-radius-md);
-    box-shadow: var(--shadow-sm);
-    padding: var(--spacing-l);
-}
-.card h2 {
-    font-size: 1.25rem;
-    margin-bottom: var(--spacing-m);
-    border-bottom: 1px solid var(--color-border);
-    padding-bottom: var(--spacing-s);
-}
-.placeholder-text {
-    color: var(--color-text-secondary);
-    font-style: italic;
-    text-align: center;
-    padding: var(--spacing-l) 0;
 }
 
-/* --- Datei-Upload-Zone --- */
+/* 5. NEU: File Loader Stile */
 .drop-zone {
     border: 2px dashed var(--color-border);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-xl);
     text-align: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-.drop-zone:hover,
-.drop-zone.drag-over {
-    border-color: var(--color-primary);
-    background-color: var(--color-primary-light);
-}
-.drop-zone p {
     color: var(--color-text-secondary);
-}
-.drop-zone__input {
-    display: none;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+    position: relative;
+    min-height: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
 }
 
-/* --- Lade-Indikator --- */
-.loader {
-    width: 48px;
-    height: 48px;
-    border: 5px solid var(--color-primary);
-    border-bottom-color: transparent;
-    border-radius: 50%;
-    display: inline-block;
-    animation: rotation 1s linear infinite;
+.drop-zone.active {
+    background-color: var(--color-bg);
+    border-color: var(--color-primary);
+}
+
+.drop-zone-text p {
+    margin-bottom: var(--spacing-m);
+}
+
+.file-input-label {
+    background-color: var(--color-primary);
+    color: var(--color-text-primary);
+    padding: var(--spacing-s) var(--spacing-m);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    display: inline-block; /* Wichtig für Padding */
+}
+
+.file-input-label:hover {
+    background-color: #0069d9;
+}
+
+.error-message {
+    color: var(--color-danger);
+    font-weight: bold;
     margin-top: var(--spacing-m);
 }
-.hidden {
-    display: none;
+
+.loading-spinner {
+    border: 4px solid var(--color-border);
+    border-top: 4px solid var(--color-primary);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    margin-top: -20px;
+    margin-left: -20px;
 }
-@keyframes rotation {
+
+@keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
-
-/* --- Responsive Design --- */
-@media (max-width: 1024px) {
-    .layout-container {
-        grid-template-columns: 1fr; /* Stapeln */
-    }
-    .detail-column {
-        position: static; /* Sticky-Positioning aufheben */
-        top: auto;
-        max-height: none;
-    }
-}
-
