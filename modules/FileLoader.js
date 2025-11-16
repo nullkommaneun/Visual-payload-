@@ -101,15 +101,27 @@ export class FileLoader {
             
             // 4. JSON parsen
             const jsonData = JSON.parse(fileContent);
+            
+            // --- NEU: DEBUG-LOG ---
+            // Zeigt uns die exakte Struktur Ihrer JSON-Daten
+            Debug.log("FileLoader: JSON-Daten geparst:", jsonData);
+            // ---------------------
 
             // 5. (Optional) Daten-Validierung (prüfen, ob es unsere BLE-Scan-Struktur ist)
             if (!this.isValidScanData(jsonData)) {
-                throw new Error("Die JSON-Datei hat nicht die erwartete Scan-Protokoll-Struktur.");
+                // --- NEU: DEBUG-LOG ---
+                Debug.warn("FileLoader: Validierung (isValidScanData) fehlgeschlagen!");
+                // ---------------------
+                throw new Error("Die JSON-Datei hat nicht die erwartete Scan-Protokoll-Struktur. (isValidScanData = false)");
             }
 
             // 6. Erfolg: Daten an den Store übergeben
             Debug.log("FileLoader: Datei erfolgreich geparst. Setze Rohdaten im Store.");
-            this.store.setRawDevices(jsonData.devices || []); // Annahme: Daten sind in 'devices'
+            
+            // !! ACHTUNG: DIES IST DIE WAHRSCHEINLICHSTE FEHLERQUELLE !!
+            // Wir nehmen an, die Daten sind in 'jsonData.devices'.
+            // Wenn Ihre JSON direkt ein Array ist, muss dies 'jsonData' sein.
+            this.store.setRawDevices(jsonData.devices || []); 
             
         } catch (error) {
             Debug.error("FileLoader: Fehler beim Lesen/Parsen der Datei.", error);
@@ -128,7 +140,8 @@ export class FileLoader {
      */
     isValidScanData(data) {
         // Hier prüfen wir, ob die JSON-Struktur unseren Erwartungen entspricht.
-        // Fürs Erste prüfen wir nur, ob ein 'devices'-Array vorhanden ist.
+        // Annahme: Es ist ein Objekt mit einem 'devices'-Array.
+        // WENN IHRE JSON NUR EIN ARRAY IST: Ändern Sie dies zu 'return Array.isArray(data);'
         return data && Array.isArray(data.devices);
     }
 }
