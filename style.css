@@ -245,3 +245,84 @@ section {
     color: var(--color-text-primary);
     text-align: right;
 }
+/* ... (Alle bisherigen Stile 1-6 bleiben unverändert) ... */
+
+/* 7. NEU: Debug-Konsole (On-Screen) */
+.debug-console {
+    position: fixed;
+    bottom: var(--spacing-m);
+    right: var(--spacing-m);
+    width: 450px;
+    max-width: 90vw;
+    height: 250px;
+    background-color: var(--color-bg-darker);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-medium);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+}
+
+.debug-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-s) var(--spacing-m);
+    background-color: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.debug-header h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.debug-header button {
+    background: var(--color-border);
+    color: var(--color-text-primary);
+    border: none;
+    padding: var(--spacing-xs) var(--spacing-s);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+}
+.debug-header button:hover {
+    background: var(--color-danger);
+}
+
+.debug-log-output {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-m);
+    font-size: 0.85em;
+    font-family: var(--font-family-mono);
+}
+
+.debug-entry {
+    padding-bottom: var(--spacing-s);
+    margin-bottom: var(--spacing-s);
+    border-bottom: 1px solid var(--color-border);
+    word-wrap: break-word;
+}
+
+.debug-entry:last-child {
+    border-bottom: none;
+}
+
+.debug-entry.debug-log {
+    color: var(--color-text-primary);
+}
+.debug-entry.debug-warn {
+    color: var(--color-ftf); /* Gelb für Warnungen */
+}
+.debug-entry.debug-error {
+    color: var(--color-danger); /* Rot für Fehler */
+    font-weight: bold;
+}
+
+.debug-entry pre {
+    background-color: var(--color-bg);
+    padding: var(--spacing-s);
+    margin-top: var(--spacing-xs);
+    white-space: pre-wrap; /* Wichtig für lange JSON-Strings */
+}
