@@ -1,6 +1,5 @@
 // app.js: Unser gebündelter App-Code, um das "file:///"-Problem zu umgehen.
 
-// Wir verpacken die gesamte App in eine Funktion, um den globalen Scope zu schützen.
 function runApp() {
     'use strict';
 
@@ -9,10 +8,6 @@ function runApp() {
     const DEBUG_MODE = true;
     let logOutputElement = null;
 
-    /**
-     * Initialisiert die On-Screen-Debug-UI.
-     * Muss als Erstes aufgerufen werden.
-     */
     function initializeDebugUI() {
         logOutputElement = document.getElementById('debug-log-output');
         const clearButton = document.getElementById('debug-clear-btn');
@@ -24,26 +19,17 @@ function runApp() {
         }
     }
 
-    /**
-     * Schreibt einen Log-Eintrag (intern).
-     */
     function writeLog(level, message, ...optionalParams) {
         if (!DEBUG_MODE) return;
-
         const timestamp = new Date().toLocaleTimeString('de-DE');
         const fullMessage = `[${APP_NAME}] ${message}`;
-
-        // 1. In die Browser-Konsole loggen
         console[level](fullMessage, ...optionalParams);
-
-        // 2. In das HTML-Debug-Fenster loggen
         if (logOutputElement) {
             const logEntry = document.createElement('div');
             logEntry.className = `debug-entry debug-${level}`;
             const msgElement = document.createElement('span');
             msgElement.textContent = `[${timestamp}] ${message} `;
             logEntry.appendChild(msgElement);
-
             if (optionalParams.length > 0) {
                 optionalParams.forEach(param => {
                     const dataElement = document.createElement('pre');
@@ -59,9 +45,6 @@ function runApp() {
         }
     }
 
-    /**
-     * Das globale Debug-Objekt.
-     */
     const Debug = {
         log: (message, ...optionalParams) => writeLog('log', message, ...optionalParams),
         warn: (message, ...optionalParams) => writeLog('warn', message, ...optionalParams),
@@ -77,7 +60,6 @@ function runApp() {
             if (!hexPayload) return { error: "Kein Payload vorhanden." };
             Debug.log(`PayloadParser: Parse Payload (${hexPayload.substring(0, 10)}...)`);
             const segments = {};
-            // (Platzhalter-Logik von der Grundstruktur)
             if (hexPayload.toLowerCase().startsWith('06c5')) { 
                segments.prefix = { raw: "06C5", description: "Cypress-Kennung" };
                segments.data = { raw: hexPayload.substring(4), description: "Unbekannte Daten" };
@@ -164,6 +146,7 @@ function runApp() {
                 this.classifyDevices(devices);
             });
         }
+        
         classifyDevices(devices) {
             if (!devices || devices.length === 0) {
                 Debug.log("MLClassifier: Keine Geräte zum Klassifizieren vorhanden.");
@@ -171,15 +154,27 @@ function runApp() {
                 return;
             }
             Debug.log(`MLClassifier: Klassifiziere ${devices.length} Geräte...`);
+
+            // --- NEU: DEBUG-LOG HINZUGEFÜGT ---
+            // Wir loggen das ERSTE Gerät, um seine Struktur zu sehen.
+            // Daran erkennen wir, ob 'company' und 'rawDataPayload' die richtigen Feldnamen sind.
+            if (devices.length > 0) {
+                Debug.log("MLClassifier: Struktur des ERSTEN Geräts:", devices[0]);
+            }
+            // ------------------------------------
+
             const classifiedDevices = devices.map(device => {
                 const classification = this.applyRules(device);
                 return { ...device, classification: classification };
             });
             this.store.setClassifiedDevices(classifiedDevices);
         }
+        
         applyRules(device) {
+            // Diese Felder sind (sehr wahrscheinlich) FALSCH für Ihre JSON:
             const company = (device.company || '').toLowerCase();
             const payload = (device.rawDataPayload || '').toLowerCase();
+            
             if (company && FTF_COMPANIES.some(ftfCompany => company.includes(ftfCompany))) { return "FTF"; }
             if (payload && FTF_PAYLOAD_PREFIXES.some(prefix => payload.startsWith(prefix))) { return "FTF"; }
             if (company && CONSUMER_COMPANIES.some(consCompany => company.includes(consCompany))) { return "Consumer"; }
@@ -197,13 +192,10 @@ function runApp() {
             Debug.log("FileLoader: Initialisiert.");
         }
         initialize() {
-            // (Diese Funktion wird jetzt NACH UI.initialize() aufgerufen)
             this.fileLoaderUI = document.getElementById('file-loader-ui');
             this.dropZone = this.fileLoaderUI.querySelector('#drop-zone');
             this.fileInput = this.fileLoaderUI.querySelector('#file-input');
-            
             if (!this.dropZone || !this.fileInput) {
-                // Dieser Fehler sollte jetzt nicht mehr auftreten
                 Debug.error("FileLoader: Kritische UI-Elemente (drop-zone, file-input) nicht gefunden.");
                 return;
             }
@@ -225,7 +217,7 @@ function runApp() {
             this.store.setIsLoading(true);
             this.store.setErrorMessage(null);
             if (file.type !== 'application/json') {
-                this.store.setErrorMessage("Fehler: Es werden nur .json-Dateien akzeptiert.");
+                this.store.setErrorMessage("Fehler: Es werden nur .json-DateIEN akzeptiert.");
                 this.store.setIsLoading(false);
                 return;
             }
@@ -239,7 +231,6 @@ function runApp() {
                     throw new Error("Die JSON-Datei hat nicht die erwartete Scan-Protokoll-Struktur (erwartet: { devices: [...] }).");
                 }
                 
-                // Wir verwenden die Annahme 'jsonData.devices'. Der Debugger wird uns sagen, ob das falsch ist.
                 this.store.setRawDevices(jsonData.devices || []);
                 
             } catch (error) {
@@ -269,9 +260,8 @@ function runApp() {
         
         initialize() {
             Debug.log("UI: Rendere initiale Komponenten...");
-            this.renderFileLoader(); // Erstellt das HTML für den FileLoader
-            this.renderDashboardLayout(); // Erstellt das HTML für Filter/Liste
-            
+            this.renderFileLoader(); 
+            this.renderDashboardLayout();
             Debug.log("UI: Abonniert Store-Events.");
             this.store.subscribe('loadingChanged', (isLoading) => this.showLoading(isLoading));
             this.store.subscribe('errorOccurred', (message) => this.showError(message));
@@ -397,27 +387,16 @@ function runApp() {
 
     // --- Modul: main.js (jetzt 'initApp') ---
     function initApp() {
-        // 1. Debug-UI initialisieren (als erste Aktion hier)
         initializeDebugUI(); 
         Debug.log("App initialisiert. Starte Module...");
         
-        // 2. Store initialisieren
         const store = new Store();
-
-        // 3. Module initialisieren und Store injizieren
         const fileLoader = new FileLoader(store);
         const classifier = new MLClassifier(store);
         const ui = new UI(store);
         
-        // 4. Initial-Setup
-        //
-        // --- KORRIGIERTE REIHENFOLGE ---
-        //
-        // ZUERST die UI initialisieren (damit HTML-Elemente erstellt werden)
         ui.initialize();
-        // DANN den FileLoader (damit er die Elemente finden und Listener binden kann)
         fileLoader.initialize(); 
-        // ZULETZT den Klassifizierer (Reihenfolge hier egal, da er nur auf den Store hört)
         classifier.initialize(); 
         
         Debug.log("Alle Module sind betriebsbereit.");
@@ -428,6 +407,5 @@ function runApp() {
 
 } // Ende von runApp()
 
-// Der globale Starter, der auf DOMContentLoaded wartet
 document.addEventListener('DOMContentLoaded', runApp);
  
