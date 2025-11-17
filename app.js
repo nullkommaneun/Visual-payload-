@@ -197,10 +197,13 @@ function runApp() {
             Debug.log("FileLoader: Initialisiert.");
         }
         initialize() {
+            // (Diese Funktion wird jetzt NACH UI.initialize() aufgerufen)
             this.fileLoaderUI = document.getElementById('file-loader-ui');
             this.dropZone = this.fileLoaderUI.querySelector('#drop-zone');
             this.fileInput = this.fileLoaderUI.querySelector('#file-input');
+            
             if (!this.dropZone || !this.fileInput) {
+                // Dieser Fehler sollte jetzt nicht mehr auftreten
                 Debug.error("FileLoader: Kritische UI-Elemente (drop-zone, file-input) nicht gefunden.");
                 return;
             }
@@ -266,8 +269,9 @@ function runApp() {
         
         initialize() {
             Debug.log("UI: Rendere initiale Komponenten...");
-            this.renderFileLoader(); 
-            this.renderDashboardLayout();
+            this.renderFileLoader(); // Erstellt das HTML für den FileLoader
+            this.renderDashboardLayout(); // Erstellt das HTML für Filter/Liste
+            
             Debug.log("UI: Abonniert Store-Events.");
             this.store.subscribe('loadingChanged', (isLoading) => this.showLoading(isLoading));
             this.store.subscribe('errorOccurred', (message) => this.showError(message));
@@ -308,7 +312,6 @@ function runApp() {
         
         renderDashboardLayout() {
             const filterState = this.store.state.currentFilter;
-            // (Ich habe hier die HTML-Tippfehler 'type_=' korrigiert)
             const html = `<div class="dashboard-filter" id="dashboard-filter"><label><input type="checkbox" data-filter="showFTF" ${filterState.showFTF ? 'checked' : ''}> FTF (${this.getDeviceCount('FTF')})</label><label><input type="checkbox" data-filter="showConsumer" ${filterState.showConsumer ? 'checked' : ''}> Consumer (${this.getDeviceCount('Consumer')})</label><label><input type="checkbox" data-filter="showIrrelevant" ${filterState.showIrrelevant ? 'checked' : ''}> Irrelevant (${this.getDeviceCount('Irrelevant')})</label></div><div class="device-list" id="device-list-container"><p>Bitte Scan-Protokoll laden.</p></div>`;
             this.dashboardSection.innerHTML = html;
         }
@@ -341,8 +344,7 @@ function runApp() {
             const displayName = device.name || "(Unbekanntes Gerät)";
             const payloadPreview = (device.rawDataPayload || "").substring(0, 20); 
             const lastRssi = Array.isArray(device.rssiGraph) && device.rssiGraph.length > 0 ? device.rssiGraph[device.rssiGraph.length - 1] : (device.rssi || 'N/A');
-            // (Ich habe hier den HTML-Tippfehler 'class_=' korrigiert)
-            return `<div class="device-item ${classificationClass}" data-device-id="${device.id}"><span class="device-classification-tag ${classificationClass}">${device.classification}</span><div class="device-info"><strong>${displayName}</strong><span class="device-company">${device.company || 'Kein Hersteller'}</span></div><div class="device-payload-preview"><code>${payloadPreview}...</code></div><div class.device-rssi"><span>${lastRssi} dBm</span></div></div>`;
+            return `<div class="device-item ${classificationClass}" data-device-id="${device.id}"><span class="device-classification-tag ${classificationClass}">${device.classification}</span><div class="device-info"><strong>${displayName}</strong><span class="device-company">${device.company || 'Kein Hersteller'}</span></div><div class="device-payload-preview"><code>${payloadPreview}...</code></div><div class="device-rssi"><span>${lastRssi} dBm</span></div></div>`;
         }
         
         addDashboardEventListeners() {
@@ -365,7 +367,6 @@ function runApp() {
         updateFilterCounts() {
             const filterUI = document.getElementById('dashboard-filter');
             if (!filterUI) return;
-            // (Sicherere Aktualisierungsmethode, die die Checkboxen nicht zerstört)
             filterUI.querySelector('[data-filter="showFTF"]').parentElement.childNodes[1].nodeValue = ` FTF (${this.getDeviceCount('FTF')})`;
             filterUI.querySelector('[data-filter="showConsumer"]').parentElement.childNodes[1].nodeValue = ` Consumer (${this.getDeviceCount('Consumer')})`;
             filterUI.querySelector('[data-filter="showIrrelevant"]').parentElement.childNodes[1].nodeValue = ` Irrelevant (${this.getDeviceCount('Irrelevant')})`;
@@ -409,9 +410,15 @@ function runApp() {
         const ui = new UI(store);
         
         // 4. Initial-Setup
-        fileLoader.initialize(); 
-        classifier.initialize(); 
+        //
+        // --- KORRIGIERTE REIHENFOLGE ---
+        //
+        // ZUERST die UI initialisieren (damit HTML-Elemente erstellt werden)
         ui.initialize();
+        // DANN den FileLoader (damit er die Elemente finden und Listener binden kann)
+        fileLoader.initialize(); 
+        // ZULETZT den Klassifizierer (Reihenfolge hier egal, da er nur auf den Store hört)
+        classifier.initialize(); 
         
         Debug.log("Alle Module sind betriebsbereit.");
     }
