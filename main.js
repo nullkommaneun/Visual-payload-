@@ -1,36 +1,37 @@
-import { log } from './modules/Debug.js';
-import * as Store from './modules/Store.js';
-import * as FileLoader from './modules/FileLoader.js';
-import * as MLClassifier from './modules/MLClassifier.js';
-import * as UI from './modules/UI.js';
+// main.js: Der Einstiegspunkt der Anwendung
 
-const CONTEXT = 'Main';
+// --- GEÄNDERT ---
+// Wir importieren jetzt 'initializeDebugUI' und 'Debug'
+import { Debug, initializeDebugUI } from './modules/Debug.js';
+import { Store } from './modules/Store.js';
+import { FileLoader } from './modules/FileLoader.js';
+import { MLClassifier } from './modules/MLClassifier.js';
+import { UI } from './modules/UI.js';
 
-/**
- * Initialisiert die Anwendung, sobald das DOM geladen ist.
- */
-document.addEventListener('DOMContentLoaded', () => {
-    log(CONTEXT, 'DOM content loaded. Initializing application...');
+// Globale App-Initialisierung
+function initApp() {
+    // --- NEU: ERSTER SCHRITT ---
+    // Initialisiert das On-Screen-Debug-Fenster, *bevor* der erste Log-Aufruf kommt.
+    // Da initApp() selbst auf DOMContentLoaded wartet, sind die Elemente garantiert vorhanden.
+    initializeDebugUI(); 
+    
+    Debug.log("App initialisiert. Starte Module...");
+    
+    // 1. Store initialisieren
+    const store = new Store();
 
-    try {
-        // Module in der korrekten Reihenfolge initialisieren
-        // 1. UI (findet seine HTML-Elemente)
-        UI.init('overview-list', 'detail-content', 'loader', 'overview-filters');
-        
-        // 2. FileLoader (bindet Events an seine HTML-Elemente)
-        FileLoader.init('file-loader-zone', 'file-input');
-        
-        // 3. MLClassifier (registriert seinen Listener beim Store)
-        MLClassifier.init();
+    // 2. Module initialisieren und den Store injizieren
+    const fileLoader = new FileLoader(store);
+    const classifier = new MLClassifier(store);
+    const ui = new UI(store);
+    
+    // 3. Initial-Setup-Funktionen der Module aufrufen
+    fileLoader.initialize(); 
+    classifier.initialize(); 
+    ui.initialize();
+    
+    Debug.log("Alle Module sind betriebsbereit.");
+}
 
-        // 4. Store (braucht kein init(), ist aber hier zur Vollständigkeit)
-        log(CONTEXT, 'Store is implicitly ready.');
-        
-        log(CONTEXT, 'Application initialized successfully.');
-
-    } catch (e) {
-        console.error('[Main] Critical error during initialization:', e);
-        // Hier könnte man eine Fehlermeldung im UI anzeigen
-    }
-});
-
+// Sicherstellen, dass das DOM geladen ist, bevor die App startet
+document.addEventListener('DOMContentLoaded', initApp);
