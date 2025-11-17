@@ -1,4 +1,5 @@
-// app.js: Unser gebündelter App-Code, um das "file:///"-Problem zu umgehen.
+// app.js: Unser gebündelter App-Code
+// (Version 3: Jetzt mit korrekten Klassifizierungsregeln basierend auf echten Daten)
 
 function runApp() {
     'use strict';
@@ -60,9 +61,14 @@ function runApp() {
             if (!hexPayload) return { error: "Kein Payload vorhanden." };
             Debug.log(`PayloadParser: Parse Payload (${hexPayload.substring(0, 10)}...)`);
             const segments = {};
-            if (hexPayload.toLowerCase().startsWith('06c5')) { 
-               segments.prefix = { raw: "06C5", description: "Cypress-Kennung" };
+            const payloadLower = hexPayload.toLowerCase();
+            
+            if (payloadLower.startsWith('06c5')) { 
+               segments.prefix = { raw: "06C5", description: "Cypress-Kennung (FTF?)" };
                segments.data = { raw: hexPayload.substring(4), description: "Unbekannte Daten" };
+            } else if (payloadLower.startsWith('91')) {
+               segments.prefix = { raw: "91", description: "Proprietär (FTF?)" };
+               segments.data = { raw: hexPayload.substring(2), description: "Unbekannte Daten" };
             } else {
                segments.unknown = { raw: hexPayload, description: "Unbekannter Payload-Typ" };
             }
@@ -114,7 +120,8 @@ function runApp() {
             this.notify('filterChanged', this.state.currentFilter);
         }
         setSelectedDevice(deviceId) {
-            const device = this.state.classifiedDevices.find(d => d.id === deviceId) || null;
+            // KORRIGIERT: Wir müssen die ID aus dem Feld 'deviceId' des Geräts verwenden, nicht 'id'
+            const device = this.state.classifiedDevices.find(d => d.deviceId === deviceId) || null;
             this.state.selectedDevice = device;
             Debug.log(`Store: Gerät ausgewählt`, device);
             this.notify('selectedDeviceUpdated', this.state.selectedDevice);
@@ -130,9 +137,11 @@ function runApp() {
     }
 
     // --- Modul: MLClassifier.js ---
-    const FTF_COMPANIES = ['linde material handling', 'kion group', 'jungheinrich ag', 'toyota material handling', 'dematic', 'omron corporation'];
-    const CONSUMER_COMPANIES = ['apple, inc.', 'samsung electronics co., ltd.', 'google', 'microsoft', 'bose corporation', 'sony corporation', 'tile, inc.'];
-    const FTF_PAYLOAD_PREFIXES = ['06c5', '09a1'];
+    
+    // REGELN AKTUALISIERT (basierend auf Ihren Logs)
+    const FTF_COMPANIES = ['linde', 'kion', 'jungheinrich', 'toyota', 'dematic', 'omron']; // (Vereinfacht)
+    const CONSUMER_COMPANIES = ['unbekannt (0x004c)', 'apple', 'samsung', 'google', 'bose', 'sony', 'tile']; // (0x004C für Apple hinzugefügt)
+    const FTF_PAYLOAD_PREFIXES = ['06c5', '91']; // ('91' hinzugefügt)
 
     class MLClassifier {
         constructor(store) {
@@ -142,7 +151,7 @@ function runApp() {
         initialize() {
             Debug.log("MLClassifier: Abonniert Store-Event 'rawDevicesUpdated'.");
             this.store.subscribe('rawDevicesUpdated', (devices) => {
-                Debug.log(`MLClassifier: Event 'rawDevicesUpdated' EMPFANGEN. Starte Klassifizierung für ${devices.length} Geräte.`, devices);
+                Debug.log(`MLClassifier: Event 'rawDevicesUpdated' EMPFANGEN. Starte Klassifizierung für ${devices.length} Geräte.`);
                 this.classifyDevices(devices);
             });
         }
@@ -154,30 +163,53 @@ function runApp() {
                 return;
             }
             Debug.log(`MLClassifier: Klassifiziere ${devices.length} Geräte...`);
-
-            // --- NEU: DEBUG-LOG HINZUGEFÜGT ---
-            // Wir loggen das ERSTE Gerät, um seine Struktur zu sehen.
-            // Daran erkennen wir, ob 'company' und 'rawDataPayload' die richtigen Feldnamen sind.
+            
+            // Log des ersten Geräts (bleibt nützlich)
             if (devices.length > 0) {
                 Debug.log("MLClassifier: Struktur des ERSTEN Geräts:", devices[0]);
             }
-            // ------------------------------------
 
             const classifiedDevices = devices.map(device => {
                 const classification = this.applyRules(device);
                 return { ...device, classification: classification };
             });
+            
+            Debug.log("MLClassifier: Klassifizierung abgeschlossen.", classifiedDevices.map(d => d.classification));
             this.store.setClassifiedDevices(classifiedDevices);
         }
         
+        // --- KERNLOGIK AKTUALISIERT ---
         applyRules(device) {
-            // Diese Felder sind (sehr wahrscheinlich) FALSCH für Ihre JSON:
             const company = (device.company || '').toLowerCase();
             const payload = (device.rawDataPayload || '').toLowerCase();
+            const name = (device.deviceName || '').toLowerCase();
+
+            // Regel 1: Explizites FTF-Flag (Höchste Priorität)
+            // (Basierend auf der Struktur in Ihren Logs)
+            if (device.isFtf === true) {
+                return "FTF";
+            }
             
-            if (company && FTF_COMPANIES.some(ftfCompany => company.includes(ftfCompany))) { return "FTF"; }
-            if (payload && FTF_PAYLOAD_PREFIXES.some(prefix => payload.startsWith(prefix))) { return "FTF"; }
-            if (company && CONSUMER_COMPANIES.some(consCompany => company.includes(consCompany))) { return "Consumer"; }
+            // Regel 2: FTF-Payload-Präfix
+            if (payload && FTF_PAYLOAD_PREFIXES.some(prefix => payload.startsWith(prefix))) {
+                return "FTF";
+            }
+            
+            // Regel 3: FTF-Hersteller
+            if (company && FTF_COMPANIES.some(ftfCompany => company.includes(ftfCompany))) {
+                return "FTF";
+            }
+
+            // Regel 4: Consumer-Geräte (Apple, Bose, etc.)
+            if (company && CONSUMER_COMPANIES.some(consCompany => company.includes(consCompany))) {
+                return "Consumer";
+            }
+            // (Zusatzregel für Bose, basierend auf deviceName)
+            if (name.includes('bose') || name.includes('soundlink')) {
+                return "Consumer";
+            }
+            
+            // Regel 5: Fallback
             return "Irrelevant";
         }
     }
@@ -217,7 +249,7 @@ function runApp() {
             this.store.setIsLoading(true);
             this.store.setErrorMessage(null);
             if (file.type !== 'application/json') {
-                this.store.setErrorMessage("Fehler: Es werden nur .json-DateIEN akzeptiert.");
+                this.store.setErrorMessage("Fehler: Es werden nur .json-Dateien akzeptiert.");
                 this.store.setIsLoading(false);
                 return;
             }
@@ -226,6 +258,7 @@ function runApp() {
                 const jsonData = JSON.parse(fileContent);
                 Debug.log("FileLoader: JSON-Daten geparst:", jsonData);
                 
+                // Diese Validierung ist dank Ihrer Logs als korrekt bestätigt
                 if (!this.isValidScanData(jsonData)) {
                     Debug.warn("FileLoader: Validierung (isValidScanData) fehlgeschlagen!");
                     throw new Error("Die JSON-Datei hat nicht die erwartete Scan-Protokoll-Struktur (erwartet: { devices: [...] }).");
@@ -243,7 +276,7 @@ function runApp() {
         }
         
         isValidScanData(data) {
-            // Wir bleiben bei der Annahme, dass es { devices: [...] } ist.
+            // (Korrekt: { devices: [...] })
             return data && Array.isArray(data.devices);
         }
     }
@@ -266,13 +299,14 @@ function runApp() {
             this.store.subscribe('loadingChanged', (isLoading) => this.showLoading(isLoading));
             this.store.subscribe('errorOccurred', (message) => this.showError(message));
             this.store.subscribe('classifiedDevicesUpdated', (devices) => {
-                Debug.log(`UI: Event 'classifiedDevicesUpdated' EMPFANGEN. Rendere Liste mit ${devices.length} Geräten.`, devices);
+                Debug.log(`UI: Event 'classifiedDevicesUpdated' EMPFANGEN. Rendere Liste mit ${devices.length} Geräten.`);
                 this.renderDeviceList(devices, this.store.state.currentFilter);
             });
             this.store.subscribe('filterChanged', (filter) => { this.renderDeviceList(this.store.state.classifiedDevices, filter); });
             this.store.subscribe('selectedDeviceUpdated', (device) => {
                 this.renderDeepDive(device);
-                this.highlightSelectedItem(device ? device.id : null);
+                // KORRIGIERT: Wir verwenden deviceId (aus der JSON)
+                this.highlightSelectedItem(device ? device.deviceId : null);
             });
             this.addDashboardEventListeners();
         }
@@ -329,12 +363,38 @@ function runApp() {
             this.updateFilterCounts();
         }
         
+        // --- HTML-RENDERING AKTUALISIERT ---
         createDeviceItemHTML(device) {
             const classificationClass = device.classification.toLowerCase();
-            const displayName = device.name || "(Unbekanntes Gerät)";
+            // KORRIGIERT: 'deviceName' statt 'name' (das es nicht gibt)
+            const displayName = device.deviceName || "(Unbekanntes Gerät)";
             const payloadPreview = (device.rawDataPayload || "").substring(0, 20); 
-            const lastRssi = Array.isArray(device.rssiGraph) && device.rssiGraph.length > 0 ? device.rssiGraph[device.rssiGraph.length - 1] : (device.rssi || 'N/A');
-            return `<div class="device-item ${classificationClass}" data-device-id="${device.id}"><span class="device-classification-tag ${classificationClass}">${device.classification}</span><div class="device-info"><strong>${displayName}</strong><span class="device-company">${device.company || 'Kein Hersteller'}</span></div><div class="device-payload-preview"><code>${payloadPreview}...</code></div><div class="device-rssi"><span>${lastRssi} dBm</span></div></div>`;
+            
+            // KORRIGIERT: Logik, um den letzten RSSI-Wert aus dem Array [timestamp, rssi] zu holen
+            let lastRssi = 'N/A';
+            if (Array.isArray(device.rssiGraph) && device.rssiGraph.length > 0) {
+                const lastEntry = device.rssiGraph[device.rssiGraph.length - 1];
+                if (Array.isArray(lastEntry) && lastEntry.length > 1) {
+                    lastRssi = lastEntry[1]; // Holt den Wert (z.B. -84)
+                }
+            }
+
+            // KORRIGIERT: HTML-Tippfehler `class.` und fehlendes `device-` Präfix
+            return `
+                <div class="device-item ${classificationClass}" data-device-id="${device.deviceId}">
+                    <span class="device-classification-tag ${classificationClass}">${device.classification}</span>
+                    <div class="device-info">
+                        <strong>${displayName}</strong>
+                        <span class="device-company">${device.company || 'Kein Hersteller'}</span>
+                    </div>
+                    <div class="device-payload-preview">
+                        <code>${payloadPreview}...</code>
+                    </div>
+                    <div class="device-rssi">
+                        <span>${lastRssi} dBm</span>
+                    </div>
+                </div>
+            `;
         }
         
         addDashboardEventListeners() {
@@ -348,6 +408,7 @@ function runApp() {
                 }
                 const deviceItem = e.target.closest('.device-item');
                 if (deviceItem) {
+                    // KORRIGIERT: Wir verwenden 'deviceId'
                     const deviceId = deviceItem.dataset.deviceId;
                     this.store.setSelectedDevice(deviceId);
                 }
@@ -369,6 +430,7 @@ function runApp() {
             if (!listContainer) return;
             listContainer.querySelectorAll('.device-item.selected').forEach(el => el.classList.remove('selected'));
             if (deviceId) {
+                // KORRIGIERT: Wir verwenden 'deviceId'
                 const selectedItem = listContainer.querySelector(`.device-item[data-device-id="${deviceId}"]`);
                 if (selectedItem) { selectedItem.classList.add('selected'); }
             }
@@ -376,9 +438,9 @@ function runApp() {
         
         renderDeepDive(device) {
             if (device) {
-                Debug.log(`UI: Render Deep Dive für Gerät ${device.name || 'keins'}.`);
+                Debug.log(`UI: Render Deep Dive für Gerät ${device.deviceName || 'keins'}.`);
                 const parsed = PayloadParser.parsePayload(device.rawDataPayload);
-                this.deepDiveSection.innerHTML = `<h3>${device.name || '(Unbekanntes Gerät)'}</h3><p>Klassifizierung: ${device.classification}</p><h4>Payload (Vorschau)</h4><pre>${JSON.stringify(parsed, null, 2)}</pre><hr><h4>Nächster Schritt:</h4><p>Implementierung der Chart.js-Signalanalyse.</p>`;
+                this.deepDiveSection.innerHTML = `<h3>${device.deviceName || '(Unbekanntes Gerät)'}</h3><p>Klassifizierung: ${device.classification}</p><h4>Payload (Vorschau)</h4><pre>${JSON.stringify(parsed, null, 2)}</pre><hr><h4>Nächster Schritt:</h4><p>Implementierung der Chart.js-Signalanalyse.</p>`;
             } else {
                 this.deepDiveSection.innerHTML = `<p>Kein Gerät für Detailansicht ausgewählt.</p>`;
             }
@@ -387,7 +449,7 @@ function runApp() {
 
     // --- Modul: main.js (jetzt 'initApp') ---
     function initApp() {
-        initializeDebugUI(); 
+        initializeDebugUI(); Example
         Debug.log("App initialisiert. Starte Module...");
         
         const store = new Store();
@@ -408,4 +470,3 @@ function runApp() {
 } // Ende von runApp()
 
 document.addEventListener('DOMContentLoaded', runApp);
- 
