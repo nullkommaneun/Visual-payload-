@@ -470,3 +470,4 @@ function runApp() {
 } // Ende von runApp()
 
 document.addEventListener('DOMContentLoaded', runApp);
+ 
