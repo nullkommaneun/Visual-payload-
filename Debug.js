@@ -8,15 +8,21 @@ let logOutputElement = null;
 
 // Initialisiert das Modul und holt sich das DOM-Element
 function initializeDebugUI() {
+    // Diese Funktion wird bei DOMContentLoaded aufgerufen
     logOutputElement = document.getElementById('debug-log-output');
     const clearButton = document.getElementById('debug-clear-btn');
     
+    // --- NEU: Defensive Prüfung ---
+    // Verhindert einen Absturz, falls die HTML-Elemente
+    // (z.B. durch Lade-Reihenfolge oder Copy-Paste-Fehler) nicht da sind.
     if (logOutputElement && clearButton) {
         clearButton.addEventListener('click', () => {
             logOutputElement.innerHTML = '';
         });
+        Debug.log("On-Screen-Debugger UI initialisiert."); // Loggt jetzt in sich selbst
     } else if (DEBUG_MODE) {
-        console.warn("Debug.js: Debug-UI-Elemente (output/clear) nicht gefunden.");
+        // Loggt nur in die (unsichtbare) Konsole, wenn die UI fehlt
+        console.warn("Debug.js: On-Screen-Debug-UI-Elemente (output/clear) nicht im DOM gefunden.");
     }
 }
 
@@ -39,6 +45,9 @@ function writeLog(level, message, ...optionalParams) {
     console[level](fullMessage, ...optionalParams);
 
     // 2. In das HTML-Debug-Fenster loggen
+    // Diese Prüfung ist jetzt doppelt sicher:
+    // 1. Sie verhindert Logs, bevor DOMContentLoaded lief.
+    // 2. Sie verhindert Logs, falls initializeDebugUI die Elemente nicht finden konnte.
     if (logOutputElement) {
         const logEntry = document.createElement('div');
         logEntry.className = `debug-entry debug-${level}`;
