@@ -39,6 +39,19 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script type="module" src="main.js"></script>
+    
+    <script>
+        // Dieses Skript läuft, sobald das DOM geladen ist.
+        document.addEventListener('DOMContentLoaded', () => {
+            const output = document.getElementById('debug-log-output');
+            
+            if (output) {
+                output.innerHTML = '<div class="debug-entry debug-log">[KANARIENVOGEL-TEST] Test erfolgreich! DOM ist geladen und JavaScript läuft. Das Problem liegt in den Modulen (main.js oder Imports).</div>';
+            } else {
+                // Das ist der "Super-GAU"
+                document.body.innerHTML = '<h1>Fehler: Debug-Fenster (#debug-log-output) nicht gefunden. index.html ist fehlerhaft.</h1>';
+            }
+        });
+    </script>
 </body>
 </html>
