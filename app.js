@@ -1,5 +1,5 @@
 // app.js: Unser gebündelter App-Code
-// (Version 4: Syntaxfehler "Example" entfernt)
+// (Version 7: Regel-Priorität korrigiert. Payload-Check > Company-Check)
 
 function runApp() {
     'use strict';
@@ -57,20 +57,51 @@ function runApp() {
 
     // --- Modul: PayloadParser.js ---
     const PayloadParser = {
+        hexToAscii: (hex) => {
+            let str = '';
+            for (let i = 0; i < hex.length; i += 2) {
+                const charCode = parseInt(hex.substr(i, 2), 16);
+                if (charCode >= 32 && charCode <= 126) {
+                    str += String.fromCharCode(charCode);
+                } else {
+                    str += '.';
+                }
+            }
+            return str;
+        },
+        parseToTable: (hexPayload) => {
+            if (!hexPayload) return [];
+            const bytes = [];
+            for (let i = 0; i < hexPayload.length; i += 2) {
+                const hex = hexPayload.substr(i, 2).toUpperCase();
+                const dec = parseInt(hex, 16);
+                bytes.push({
+                    offset: `0x${(i/2).toString(16).padStart(2, '0')}`,
+                    hex: `0x${hex}`,
+                    bin: dec.toString(2).padStart(8, '0'),
+                    ascii: (dec >= 32 && dec <= 126) ? String.fromCharCode(dec) : '.'
+                });
+            }
+            return bytes;
+        },
         parsePayload: (hexPayload) => {
-            if (!hexPayload) return { error: "Kein Payload vorhanden." };
-            Debug.log(`PayloadParser: Parse Payload (${hexPayload.substring(0, 10)}...)`);
-            const segments = {};
+            if (!hexPayload) return [{ description: "Fehler", value: "Kein Payload vorhanden." }];
+            const segments = [];
             const payloadLower = hexPayload.toLowerCase();
             
-            if (payloadLower.startsWith('06c5')) { 
-               segments.prefix = { raw: "06C5", description: "Cypress-Kennung (FTF?)" };
-               segments.data = { raw: hexPayload.substring(4), description: "Unbekannte Daten" };
-            } else if (payloadLower.startsWith('91')) {
-               segments.prefix = { raw: "91", description: "Proprietär (FTF?)" };
-               segments.data = { raw: hexPayload.substring(2), description: "Unbekannte Daten" };
-            } else {
-               segments.unknown = { raw: hexPayload, description: "Unbekannter Payload-Typ" };
+            if (payloadLower.includes('06c5')) { 
+               segments.push({ description: "Kennung", value: "06C5 (Cypress, FTF?)" });
+               segments.push({ description: "Daten", value: hexPayload.substring(payloadLower.indexOf('06c5') + 4) });
+            } else if (payloadLower.includes('91')) {
+               segments.push({ description: "Kennung", value: "91 (Proprietär, FTF?)" });
+               segments.push({ description: "Daten", value: hexPayload.substring(payloadLower.indexOf('91') + 2) });
+            } 
+            else if (payloadLower.startsWith('1005') || payloadLower.startsWith('1006') || payloadLower.startsWith('1007')) {
+                segments.push({ description: "Apple (iBeacon)", value: "Proximity-Daten" });
+                segments.push({ description: "Rohdaten", value: hexPayload });
+            }
+            else {
+               segments.push({ description: "Unbekannt", value: hexPayload });
             }
             return segments;
         },
@@ -136,9 +167,10 @@ function runApp() {
     }
 
     // --- Modul: MLClassifier.js ---
-    const FTF_COMPANIES = ['linde', 'kion', 'jungheinrich', 'toyota', 'dematic', 'omron'];
-    const CONSUMER_COMPANIES = ['unbekannt (0x004c)', 'apple', 'samsung', 'google', 'bose', 'sony', 'tile'];
-    const FTF_PAYLOAD_PREFIXES = ['06c5', '91'];
+    
+    // Regeln (Achten Sie auf 'includes' statt 'startsWith')
+    const CONSUMER_COMPANIES = ['unbekannt (0x004c)']; // Apple
+    const FTF_PAYLOAD_RULES = ['06c5', '91']; // (Regeln aus System-Prompt)
 
     class MLClassifier {
         constructor(store) {
@@ -161,10 +193,6 @@ function runApp() {
             }
             Debug.log(`MLClassifier: Klassifiziere ${devices.length} Geräte...`);
             
-            if (devices.length > 0) {
-                Debug.log("MLClassifier: Struktur des ERSTEN Geräts:", devices[0]);
-            }
-
             const classifiedDevices = devices.map(device => {
                 const classification = this.applyRules(device);
                 return { ...device, classification: classification };
@@ -174,31 +202,30 @@ function runApp() {
             this.store.setClassifiedDevices(classifiedDevices);
         }
         
+        // --- KERNLOGIK AKTUALISIERT (REIHEfolge GEÄNDERT) ---
         applyRules(device) {
             const company = (device.company || '').toLowerCase();
             const payload = (device.rawDataPayload || '').toLowerCase();
             const name = (device.deviceName || '').toLowerCase();
 
-            // Regel 1: Explizites FTF-Flag
+            // Regel 1: Explizites FTF-Flag (Höchste Priorität)
             if (device.isFtf === true) {
                 return "FTF";
             }
             
-            // Regel 2: FTF-Payload-Präfix
-            if (payload && FTF_PAYLOAD_PREFIXES.some(prefix => payload.startsWith(prefix))) {
+            // Regel 2: FTF-Payload-Prüfung (JETZT VORHER)
+            // Wir prüfen, ob der Payload die Regel *enthält*, nicht nur *startet*
+            if (payload && FTF_PAYLOAD_RULES.some(rule => payload.includes(rule))) {
                 return "FTF";
             }
             
-            // Regel 3: FTF-Hersteller
-            if (company && FTF_COMPANIES.some(ftfCompany => company.includes(ftfCompany))) {
-                return "FTF";
-            }
-
-            // Regel 4: Consumer-Geräte
+            // Regel 3: Consumer-Geräte (Hersteller-ID)
             if (company && CONSUMER_COMPANIES.some(consCompany => company.includes(consCompany))) {
                 return "Consumer";
             }
-            if (name.includes('bose') || name.includes('soundlink')) {
+            
+            // Regel 4: Consumer-Geräte (Name)
+            if (name.includes('jbl') || name.includes('srs-') || name.includes('flipper') || name.includes('bose') || name.includes('soundlink')) {
                 return "Consumer";
             }
             
@@ -279,6 +306,7 @@ function runApp() {
             this.fileLoaderSection = document.getElementById('file-loader-ui');
             this.dashboardSection = document.getElementById('dashboard-ui');
             this.deepDiveSection = document.getElementById('deep-dive-content');
+            this.rssiChart = null;
             Debug.log("UI: Initialisiert.");
         }
         
@@ -420,20 +448,176 @@ function runApp() {
             }
         }
         
-        renderDeepDive(device) {
-            if (device) {
-                Debug.log(`UI: Render Deep Dive für Gerät ${device.deviceName || 'keins'}.`);
-                const parsed = PayloadParser.parsePayload(device.rawDataPayload);
-                this.deepDiveSection.innerHTML = `<h3>${device.deviceName || '(Unbekanntes Gerät)'}</h3><p>Klassifizierung: ${device.classification}</p><h4>Payload (Vorschau)</h4><pre>${JSON.stringify(parsed, null, 2)}</pre><hr><h4>Nächster Schritt:</h4><p>Implementierung der Chart.js-Signalanalyse.</p>`;
-            } else {
-                this.deepDiveSection.innerHTML = `<p>Kein Gerät für Detailansicht ausgewählt.</p>`;
+        analyzeBehavior(device) {
+            const analysis = {
+                interval: 'N/A',
+                packetLength: 'N/A'
+            };
+            
+            if (device.rssiGraph && device.rssiGraph.length > 1) {
+                const timestamps = device.rssiGraph.map(entry => entry[0]);
+                const deltas = [];
+                for (let i = 1; i < timestamps.length; i++) {
+                    const delta = timestamps[i] - timestamps[i-1];
+                    if (delta > 0) deltas.push(delta);
+                }
+                if (deltas.length > 0) {
+                    const avgDelta = deltas.reduce((a, b) => a + b, 0) / deltas.length;
+                    analysis.interval = `~${(avgDelta * 1000).toFixed(0)} ms`;
+                } else if (timestamps.length > 0) {
+                    analysis.interval = "Einzelnes Paket";
+                }
             }
+            
+            if (device.history && device.history.length > 0) {
+                const lengths = device.history.map(h => h.p.length);
+                const uniqueLengths = [...new Set(lengths)];
+                if (uniqueLengths.length === 1) {
+                    analysis.packetLength = `Konstant (${uniqueLengths[0] / 2} Bytes)`;
+                } else {
+                    analysis.packetLength = `Variabel (${Math.min(...lengths) / 2} - ${Math.max(...lengths) / 2} Bytes)`;
+                }
+            }
+            return analysis;
         }
+
+        renderDeepDive(device) {
+            if (!device) {
+                if (this.rssiChart) {
+                    this.rssiChart.destroy();
+                    this.rssiChart = null;
+                }
+                this.deepDiveSection.innerHTML = `<p>Kein Gerät für Detailansicht ausgewählt.</p>`;
+                return;
+            }
+
+            Debug.log(`UI: Render Deep Dive für Gerät ${device.deviceName || 'keins'}.`);
+            
+            const behavior = this.analyzeBehavior(device);
+            const payloadSegments = PayloadParser.parsePayload(device.rawDataPayload);
+            const payloadTable = PayloadParser.parseToTable(device.rawDataPayload);
+
+            const html = `
+                <h3 class="${device.classification.toLowerCase()}">${device.deviceName || '(Unbekannt)'}</h3>
+                
+                <div class="deep-dive-section">
+                    <h4>Verhaltens-Analyse ("WIE")</h4>
+                    <table class="analysis-table">
+                        <tr><th>Klassifizierung</th><td class="${device.classification.toLowerCase()}">${device.classification}</td></tr>
+                        <tr><th>Hersteller</th><td>${device.company}</td></tr>
+                        <tr><th>Sendeintervall</th><td class="description">${behavior.interval}</td></tr>
+                        <tr><th>Paketlänge</th><td class="description">${behavior.packetLength}</td></tr>
+                        <tr><th>Typ</th><td>${device.type}</td></tr>
+                    </table>
+                </div>
+
+                <div class="deep-dive-section">
+                    <h4>Signal-Analyse ("WIE")</h4>
+                    <div id="rssi-chart-container">
+                        <canvas id="rssi-chart-canvas"></canvas>
+                    </div>
+                </div>
+
+                <div class="deep-dive-section">
+                    <h4>Payload-Analyse ("WAS")</h4>
+                    <table class="analysis-table">
+                        ${payloadSegments.map(seg => `
+                            <tr><th>${seg.description}</th><td>${seg.value}</td></tr>
+                        `).join('')}
+                    </table>
+                </div>
+                
+                <div class="deep-dive-section">
+                    <h4>Payload (Rohdaten-Tabelle)</h4>
+                    <table class="analysis-table payload-table">
+                        ${payloadTable.map(byte => `
+                            <tr>
+                                <td class="byte-offset">${byte.offset}</td>
+                                <td classs="hex">${byte.hex}</td>
+                                <td class="ascii">${byte.ascii}</td>
+                                <td class="binary">${byte.bin}</td>
+                            </tr>
+                        `).join('')}
+                    </table>
+                </div>
+            `;
+            
+            this.deepDiveSection.innerHTML = html;
+            
+            setTimeout(() => this.renderRssiChart(device.rssiGraph), 0);
+        }
+        
+        renderRssiChart(rssiData) {
+            const canvas = document.getElementById('rssi-chart-canvas');
+            if (!canvas) {
+                Debug.warn("UI: Chart.js Canvas nicht gefunden.");
+                return;
+            }
+            const ctx = canvas.getContext('2d');
+
+            if (this.rssiChart) {
+                this.rssiChart.destroy();
+            }
+            
+            if (!rssiData || rssiData.length === 0) {
+                Debug.warn("UI: Keine rssiGraph-Daten zum Zeichnen.");
+                return;
+            }
+
+            const labels = rssiData.map(entry => entry[0] + 's');
+            const data = rssiData.map(entry => entry[1]);
+
+            const style = getComputedStyle(document.body);
+            const gridColor = style.getPropertyValue('--color-border');
+            const textColor = style.getPropertyValue('--color-text-secondary');
+            const lineColor = style.getPropertyValue('--color-ftf');
+
+            this.rssiChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'RSSI Signalverlauf (in dBm)',
+                        data: data,
+                        borderColor: lineColor,
+                        backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 2,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            min: -100,
+                            max: -20,
+                            grid: { color: gridColor },
+                            ticks: { color: textColor }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { 
+                                color: textColor,
+                                maxTicksLimit: 10
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+        
     } // Ende UI-Klasse
 
     // --- Modul: main.js (jetzt 'initApp') ---
     function initApp() {
-        // KORRIGIERT: Das 'Example' wurde entfernt
         initializeDebugUI(); 
         Debug.log("App initialisiert. Starte Module...");
         
