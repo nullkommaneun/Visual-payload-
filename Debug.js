@@ -1,4 +1,4 @@
-// modules/Debug.js: Konsistentes Logging-Modul (jetzt auch mit HTML-Output)
+// modules/Debug.js: Konsistentes Logging-Modul (jetzt mit HTML-Output)
 
 const APP_NAME = "BLE_Dashboard";
 const DEBUG_MODE = true; // Globaler Schalter für Logs
@@ -6,28 +6,26 @@ const DEBUG_MODE = true; // Globaler Schalter für Logs
 // HTML-Element für den Log-Output
 let logOutputElement = null;
 
-// Initialisiert das Modul und holt sich das DOM-Element
-function initializeDebugUI() {
-    // Diese Funktion wird bei DOMContentLoaded aufgerufen
+// --- GEÄNDERT ---
+// Diese Funktion wird jetzt nicht mehr automatisch,
+// sondern gezielt von main.js aufgerufen.
+export function initializeDebugUI() {
     logOutputElement = document.getElementById('debug-log-output');
     const clearButton = document.getElementById('debug-clear-btn');
     
-    // --- NEU: Defensive Prüfung ---
-    // Verhindert einen Absturz, falls die HTML-Elemente
-    // (z.B. durch Lade-Reihenfolge oder Copy-Paste-Fehler) nicht da sind.
     if (logOutputElement && clearButton) {
         clearButton.addEventListener('click', () => {
             logOutputElement.innerHTML = '';
         });
-        Debug.log("On-Screen-Debugger UI initialisiert."); // Loggt jetzt in sich selbst
+        // Wir können hier nicht 'Debug.log' verwenden, da es eine Endlosschleife auslösen könnte
+        console.log("On-Screen-Debugger UI initialisiert."); 
     } else if (DEBUG_MODE) {
-        // Loggt nur in die (unsichtbare) Konsole, wenn die UI fehlt
         console.warn("Debug.js: On-Screen-Debug-UI-Elemente (output/clear) nicht im DOM gefunden.");
     }
 }
 
-// Stellt sicher, dass die UI bereit ist, bevor wir versuchen, hineinzuschreiben
-document.addEventListener('DOMContentLoaded', initializeDebugUI);
+// --- ENTFERNT ---
+// Der 'DOMContentLoaded' Listener wurde entfernt, um die Race Condition zu beheben.
 
 /**
  * Schreibt eine Log-Nachricht in die Konsole und das HTML-Fenster.
@@ -45,9 +43,6 @@ function writeLog(level, message, ...optionalParams) {
     console[level](fullMessage, ...optionalParams);
 
     // 2. In das HTML-Debug-Fenster loggen
-    // Diese Prüfung ist jetzt doppelt sicher:
-    // 1. Sie verhindert Logs, bevor DOMContentLoaded lief.
-    // 2. Sie verhindert Logs, falls initializeDebugUI die Elemente nicht finden konnte.
     if (logOutputElement) {
         const logEntry = document.createElement('div');
         logEntry.className = `debug-entry debug-${level}`;
@@ -62,7 +57,6 @@ function writeLog(level, message, ...optionalParams) {
             optionalParams.forEach(param => {
                 const dataElement = document.createElement('pre');
                 try {
-                    // null, 2 = hübsche JSON-Formatierung
                     dataElement.textContent = JSON.stringify(param, null, 2);
                 } catch (e) {
                     dataElement.textContent = "[Konnte Objekt nicht stringifizieren]";
@@ -71,7 +65,6 @@ function writeLog(level, message, ...optionalParams) {
             });
         }
         
-        // Oben anfügen und scrollen
         logOutputElement.prepend(logEntry);
     }
 }
@@ -86,7 +79,6 @@ export const Debug = {
     },
     
     error: (message, error, ...optionalParams) => {
-        // Error-Objekte für bessere Lesbarkeit behandeln
         let errorDetails = (error instanceof Error) ? `${error.name}: ${error.message}` : error;
         writeLog('error', `${message} -> ${errorDetails}`, ...optionalParams);
     }
