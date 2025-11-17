@@ -15,18 +15,21 @@
         <main>
             <section id="file-loader-section" aria-labelledby="file-loader-heading">
                 <h2 id="file-loader-heading">1. Scan-Protokoll laden</h2>
-                <div id="file-loader-ui"></div>
+                <div id="file-loader-ui">
+                    </div>
             </section>
             
             <section id="dashboard-section" aria-labelledby="dashboard-heading">
                 <h2 id="dashboard-heading">2. Analyse-Übersicht</h2>
-                <div id="dashboard-ui"></div>
+                <div id="dashboard-ui">
+                    </div>
             </section>
         </main>
 
         <aside id="deep-dive-sidebar" aria-label="Geräte-Detailansicht">
             <h2>Geräte-Details</h2>
-            <div id="deep-dive-content"></div>
+            <div id="deep-dive-content">
+                </div>
         </aside>
     </div>
 
@@ -40,18 +43,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     
-    <script>
-        // Dieses Skript läuft, sobald das DOM geladen ist.
-        document.addEventListener('DOMContentLoaded', () => {
-            const output = document.getElementById('debug-log-output');
-            
-            if (output) {
-                output.innerHTML = '<div class="debug-entry debug-log">[KANARIENVOGEL-TEST] Test erfolgreich! DOM ist geladen und JavaScript läuft. Das Problem liegt in den Modulen (main.js oder Imports).</div>';
-            } else {
-                // Das ist der "Super-GAU"
-                document.body.innerHTML = '<h1>Fehler: Debug-Fenster (#debug-log-output) nicht gefunden. index.html ist fehlerhaft.</h1>';
-            }
-        });
-    </script>
+    <script src="app.js"></script>
 </body>
 </html>
+ 
