@@ -1,5 +1,5 @@
 // app.js: Unser gebündelter App-Code
-// (Version 7: Regel-Priorität korrigiert. Payload-Check > Company-Check)
+// (Version 7: Regel-Priorität korrigiert, FTF-Payload-Decoder implementiert)
 
 function runApp() {
     'use strict';
@@ -55,7 +55,7 @@ function runApp() {
         }
     };
 
-    // --- Modul: PayloadParser.js ---
+    // --- Modul: PayloadParser.js (ERWEITERT) ---
     const PayloadParser = {
         hexToAscii: (hex) => {
             let str = '';
@@ -84,17 +84,42 @@ function runApp() {
             }
             return bytes;
         },
+        
+        /**
+         * Zerlegt den Payload in eine lesbare Segment-Tabelle
+         */
         parsePayload: (hexPayload) => {
             if (!hexPayload) return [{ description: "Fehler", value: "Kein Payload vorhanden." }];
+            
             const segments = [];
             const payloadLower = hexPayload.toLowerCase();
             
-            if (payloadLower.includes('06c5')) { 
+            // --- NEU: FTF-DECODER (basierend auf Ihrem Payload 10053F1CF56D9B) ---
+            // Wir suchen nach der FTF-Signatur (hier: '...91005...')
+            const ftfSignatureIndex = payloadLower.indexOf('91005'); 
+            
+            if (ftfSignatureIndex > -1) {
+                // Teil 1: Die Daten vor der Signatur (vermutlich Apple-Daten)
+                const appleData = hexPayload.substring(0, ftfSignatureIndex);
+                segments.push({ 
+                    description: "Präfix (Apple)", 
+                    value: appleData.length > 20 ? appleData.substring(0, 20) + '...' : appleData 
+                });
+
+                // Teil 2: Die FTF-Signatur selbst extrahieren
+                // Annahme: ...910053F1CF56D9B
+                const ftfData = hexPayload.substring(ftfSignatureIndex); 
+                
+                segments.push({ description: "FTF-Kennung", value: ftfData.substring(0, 2) }); // "91"
+                segments.push({ description: "Typ/Präfix", value: ftfData.substring(2, 6) }); // "0053"
+                segments.push({ description: "Sensor-ID (Annahme)", value: ftfData.substring(6, 10) }); // "F1CF"
+                segments.push({ description: "Status (Annahme)", value: ftfData.substring(10, 14) }); // "56D9"
+                segments.push({ description: "Checksum (Annahme)", value: ftfData.substring(14) }); // "B"
+            } 
+            // Andere bekannte Muster
+            else if (payloadLower.includes('06c5')) { 
                segments.push({ description: "Kennung", value: "06C5 (Cypress, FTF?)" });
                segments.push({ description: "Daten", value: hexPayload.substring(payloadLower.indexOf('06c5') + 4) });
-            } else if (payloadLower.includes('91')) {
-               segments.push({ description: "Kennung", value: "91 (Proprietär, FTF?)" });
-               segments.push({ description: "Daten", value: hexPayload.substring(payloadLower.indexOf('91') + 2) });
             } 
             else if (payloadLower.startsWith('1005') || payloadLower.startsWith('1006') || payloadLower.startsWith('1007')) {
                 segments.push({ description: "Apple (iBeacon)", value: "Proximity-Daten" });
@@ -170,7 +195,7 @@ function runApp() {
     
     // Regeln (Achten Sie auf 'includes' statt 'startsWith')
     const CONSUMER_COMPANIES = ['unbekannt (0x004c)']; // Apple
-    const FTF_PAYLOAD_RULES = ['06c5', '91']; // (Regeln aus System-Prompt)
+    const FTF_PAYLOAD_RULES = ['06c5', '91005']; // (Regel aus System-Prompt und Ihre Entdeckung)
 
     class MLClassifier {
         constructor(store) {
@@ -214,7 +239,7 @@ function runApp() {
             }
             
             // Regel 2: FTF-Payload-Prüfung (JETZT VORHER)
-            // Wir prüfen, ob der Payload die Regel *enthält*, nicht nur *startet*
+            // Wir prüfen, ob der Payload die Regel *enthält*
             if (payload && FTF_PAYLOAD_RULES.some(rule => payload.includes(rule))) {
                 return "FTF";
             }
@@ -533,7 +558,7 @@ function runApp() {
                         ${payloadTable.map(byte => `
                             <tr>
                                 <td class="byte-offset">${byte.offset}</td>
-                                <td classs="hex">${byte.hex}</td>
+                                <td class="hex">${byte.hex}</td>
                                 <td class="ascii">${byte.ascii}</td>
                                 <td class="binary">${byte.bin}</td>
                             </tr>
